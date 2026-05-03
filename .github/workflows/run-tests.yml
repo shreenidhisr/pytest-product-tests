@@ -35,7 +35,7 @@ jobs:
       # ── 4. Build the Spring Boot jar ──────────────────────────────────────
       - name: Build Java API
         working-directory: java-api
-        run: ./mvnw -q package -DskipTests
+        run: mvn -q package -DskipTests
 
       # ── 5. Start the API in the background ────────────────────────────────
       - name: Start Java API
