@@ -1,7 +1,8 @@
+import os
 import pytest
 import requests
 
-BASE_URL = "http://localhost:8080"
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8080")
 
 
 @pytest.fixture(scope="session")

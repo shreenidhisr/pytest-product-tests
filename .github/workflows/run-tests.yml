@@ -1,0 +1,83 @@
+name: Run System Tests
+
+on:
+  pull_request:
+    paths:
+      - "tests/**"
+  push:
+    branches: [master, main]
+
+jobs:
+  test:
+    name: Start Java API and run pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout the test repo ──────────────────────────────────────────
+      - name: Checkout test repo
+        uses: actions/checkout@v4
+
+      # ── 2. Checkout the Java API repo (public — no token needed) ──────────
+      - name: Checkout Java API
+        uses: actions/checkout@v4
+        with:
+          repository: shreenidhisr/java-product-api
+          path: java-api
+
+      # ── 3. Set up JDK 17 with Maven cache ─────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      # ── 4. Build the Spring Boot jar ──────────────────────────────────────
+      - name: Build Java API
+        working-directory: java-api
+        run: ./mvnw -q package -DskipTests
+
+      # ── 5. Start the API in the background ────────────────────────────────
+      - name: Start Java API
+        working-directory: java-api
+        run: |
+          java -jar target/*.jar &
+          echo "API PID: $!"
+
+      # ── 6. Wait until /products responds (up to 60s) ──────────────────────
+      - name: Wait for API to be healthy
+        run: |
+          echo "Waiting for API on http://localhost:8080/products ..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/products > /dev/null 2>&1; then
+              echo "API is ready after ${i} attempts"
+              exit 0
+            fi
+            echo "  attempt $i/30 — sleeping 2s"
+            sleep 2
+          done
+          echo "ERROR: API did not start within 60 seconds"
+          exit 1
+
+      # ── 7. Set up Python ───────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      # ── 8. Run pytest ──────────────────────────────────────────────────────
+      - name: Run pytest
+        env:
+          BASE_URL: http://localhost:8080
+        run: pytest tests/ -v --tb=short --junit-xml=test-results.xml
+
+      # ── 9. Upload test results (always, so failures are visible) ──────────
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: test-results.xml
