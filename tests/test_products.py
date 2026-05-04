@@ -81,3 +81,27 @@ class TestDeleteProduct:
     def test_delete_nonexistent_product_returns_404(self, base_url):
         response = requests.delete(f"{base_url}/products/999999")
         assert response.status_code == 404
+
+
+class TestDescriptionField:
+    def test_create_product_with_desc(self, base_url, create_product):
+        product = create_product({"name": "Desk", "price": 100.0, "desc": "Standing desk"})
+        assert product["desc"] == "Standing desk"
+
+    def test_create_product_without_desc(self, base_url, create_product):
+        product = create_product({"name": "Chair", "price": 50.0})
+        assert "desc" not in product or product["desc"] is None
+
+    def test_read_product_with_desc(self, base_url, create_product):
+        product = create_product({"name": "Lamp", "price": 20.0, "desc": "LED lamp"})
+        response = requests.get(f"{base_url}/products/{product['id']}")
+        assert response.json()["desc"] == "LED lamp"
+
+    def test_update_product_desc(self, base_url, create_product):
+        product = create_product({"name": "Book", "price": 10.0, "desc": "Old book"})
+        response = requests.put(
+            f"{base_url}/products/{product['id']}",
+            json={"name": "Book", "price": 10.0, "desc": "New book"}
+        )
+        assert response.status_code == 200
+        assert response.json()["desc"] == "New book"
